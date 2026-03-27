@@ -1,0 +1,30 @@
+image: ubuntu:24.04
+
+stages:
+  - build
+  - test
+
+variables:
+  BUILD_DIR: build
+  DEBIAN_FRONTEND: noninteractive
+
+before_script:
+  - apt-get update -qq
+  - apt-get install -y -qq cmake ninja-build g++ libboost-dev git ca-certificates
+
+build:
+  stage: build
+  script:
+    - cmake -G "Ninja Multi-Config" -B $BUILD_DIR -DBUILD_TESTS=ON
+    - cmake --build $BUILD_DIR --config Debug
+  artifacts:
+    paths:
+      - $BUILD_DIR/
+    expire_in: 1 hour
+
+test:
+  stage: test
+  script:
+    - ctest --test-dir $BUILD_DIR --build-config Debug --output-on-failure
+  dependencies:
+    - build
