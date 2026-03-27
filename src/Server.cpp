@@ -58,6 +58,9 @@ void Session::readBody() {
                              mServer.onRecieve(std::string(mMessage.body.data(), mMessage.length));
                              readHeader();
                          }
+                         else {
+                             mServer.onDisconnect(mSocket.remote_endpoint().port());
+                         }
                      });
 }
 
@@ -90,8 +93,7 @@ void Server::accept() {
             const auto           remote_endpoint = socket.remote_endpoint();
             const std::string    address         = remote_endpoint.address().to_string();
             const unsigned short port            = remote_endpoint.port();
-            Logger::instance().log(Logger::LogLevel::INFO,
-                                   "New connection from " + address + ":" + std::to_string(port));
+            onConnect(port);
             std::lock_guard<std::mutex> lock(mActiveSessions.mtx);
             auto session = std::make_shared<Session>(std::move(socket), *this);
             mActiveSessions.data.insert(session);

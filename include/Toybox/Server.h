@@ -21,6 +21,8 @@ public:
     void run();
 
     std::function<void(std::string)> onRecieve;
+    std::function<void(const unsigned short)> onConnect;
+    std::function<void(const unsigned short)> onDisconnect;
 
 private:
     void accept();
