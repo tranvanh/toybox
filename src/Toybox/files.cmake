@@ -1,0 +1,25 @@
+set(TOYBOX_HEADERS
+    include/Toybox/Application.h
+    include/Toybox/CallbackLifetime.h
+    include/Toybox/CallbackList.h
+    include/Toybox/CallbackOwner.h
+    include/Toybox/Client.h
+    include/Toybox/Common.h
+    include/Toybox/FlatMap.h
+    include/Toybox/Logger.h
+    include/Toybox/NetworkComponent.h
+    include/Toybox/Serialization.h
+    include/Toybox/Server.h
+    include/Toybox/ThreadPool.h
+    include/Toybox/ThreadSafeQueue.h
+)
+
+set(TOYBOX_SOURCES
+    src/Application.cpp
+    src/Client.cpp
+    src/Logger.cpp
+    src/NetworkComponent.cpp
+    src/Serialization.cpp
+    src/Server.cpp
+    src/ThreadPool.cpp
+)
