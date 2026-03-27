@@ -90,4 +90,42 @@ TEST(ThreadSafeQueue, multiConsumerProducer) {
     EXPECT_EQ(result, 6);
 }
 
+TEST(ThreadSafeQueue, tryPopWithItemsAvailable) {
+    ThreadSafeQueue<int> tsQueue;
+    tsQueue.push(42);
+    auto val = tsQueue.try_pop();
+    ASSERT_TRUE(val.has_value());
+    EXPECT_EQ(*val, 42);
+    EXPECT_TRUE(tsQueue.empty());
+}
+
+TEST(ThreadSafeQueue, tryPopStoppedReturnsNullopt) {
+    ThreadSafeQueue<int> tsQueue;
+    tsQueue.push(1);
+    tsQueue.stop();
+    // try_pop returns nullopt when stopped, even if items exist
+    auto val = tsQueue.try_pop();
+    EXPECT_FALSE(val.has_value());
+}
+
+TEST(ThreadSafeQueue, pushMoveOverload) {
+    ThreadSafeQueue<std::string> tsQueue;
+    std::string s = "hello";
+    tsQueue.push(std::move(s));
+    auto val = tsQueue.pop();
+    ASSERT_TRUE(val.has_value());
+    EXPECT_EQ(*val, "hello");
+}
+
+TEST(ThreadSafeQueue, popDrainedAfterStop) {
+    ThreadSafeQueue<int> tsQueue;
+    tsQueue.push(1);
+    tsQueue.push(2);
+    tsQueue.stop();
+    // pop should still return items after stop until empty
+    EXPECT_EQ(*tsQueue.pop(), 1);
+    EXPECT_EQ(*tsQueue.pop(), 2);
+    EXPECT_FALSE(tsQueue.pop().has_value());
+}
+
 TOYBOX_NAMESPACE_END

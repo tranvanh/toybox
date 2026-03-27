@@ -86,4 +86,24 @@ TEST(Serialization, SerializableInterface) {
     EXPECT_EQ(Detail::to_string_via_stream(obj), "MySerializable(7)");
 }
 
+TEST(Serialization, SingleElementRange) {
+    std::vector<int> v{42};
+    EXPECT_EQ(Detail::to_string_via_stream(v), "[42]");
+}
+
+TEST(Serialization, PairStringValues) {
+    std::pair<std::string, std::string> p{"hello", "world"};
+    EXPECT_EQ(Detail::to_string_via_stream(p), "{hello: world}");
+}
+
+TEST(Serialization, EmptyNestedRange) {
+    std::vector<std::vector<int>> vv{};
+    EXPECT_EQ(Detail::to_string_via_stream(vv), "[]");
+}
+
+TEST(Serialization, RangeOfSerializables) {
+    std::vector<Detail::MySerializable> v{Detail::MySerializable(1), Detail::MySerializable(2)};
+    EXPECT_EQ(Detail::to_string_via_stream(v), "[MySerializable(1), MySerializable(2)]");
+}
+
 TOYBOX_NAMESPACE_END

@@ -96,4 +96,58 @@ TEST(FlatMap, CustomComparatorDescending) {
     EXPECT_EQ(m.find(42), m.end());
 }
 
+TEST(FlatMap, BeyondInitialCapacity) {
+    FlatMap<int, int> m;
+    for (int i = 0; i < 20; ++i) {
+        EXPECT_TRUE(m.insert({i, i * 10}));
+    }
+    EXPECT_EQ(m.size(), 20u);
+    for (int i = 0; i < 20; ++i) {
+        EXPECT_EQ(m.get(i), std::optional<int>(i * 10));
+    }
+}
+
+TEST(FlatMap, EraseFirstElement) {
+    FlatMap<int, int> m;
+    for (int i = 1; i <= 3; ++i) EXPECT_TRUE(m.insert({i, i}));
+    EXPECT_TRUE(m.erase(1));
+    EXPECT_FALSE(m.contains(1));
+    EXPECT_EQ(m.size(), 2u);
+    std::vector<int> keys;
+    for (const auto& kv : m) keys.push_back(kv.first);
+    EXPECT_EQ((std::vector<int>{2, 3}), keys);
+}
+
+TEST(FlatMap, EraseLastElement) {
+    FlatMap<int, int> m;
+    for (int i = 1; i <= 3; ++i) EXPECT_TRUE(m.insert({i, i}));
+    EXPECT_TRUE(m.erase(3));
+    EXPECT_FALSE(m.contains(3));
+    EXPECT_EQ(m.size(), 2u);
+    std::vector<int> keys;
+    for (const auto& kv : m) keys.push_back(kv.first);
+    EXPECT_EQ((std::vector<int>{1, 2}), keys);
+}
+
+TEST(FlatMap, StringKeys) {
+    FlatMap<std::string, int> m;
+    EXPECT_TRUE(m.insert({"banana", 2}));
+    EXPECT_TRUE(m.insert({"apple", 1}));
+    EXPECT_TRUE(m.insert({"cherry", 3}));
+    // Sorted alphabetically
+    std::vector<std::string> keys;
+    for (const auto& kv : m) keys.push_back(kv.first);
+    EXPECT_EQ((std::vector<std::string>{"apple", "banana", "cherry"}), keys);
+    EXPECT_EQ(m.get("banana"), std::optional<int>(2));
+    EXPECT_FALSE(m.get("durian").has_value());
+}
+
+TEST(FlatMap, ReinsertAfterErase) {
+    FlatMap<int, int> m;
+    EXPECT_TRUE(m.insert({1, 10}));
+    EXPECT_TRUE(m.erase(1));
+    EXPECT_TRUE(m.insert({1, 99}));
+    EXPECT_EQ(m.get(1), std::optional<int>(99));
+}
+
 TOYBOX_NAMESPACE_END
