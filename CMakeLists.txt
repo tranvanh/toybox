@@ -61,7 +61,7 @@ include(files.cmake)
 
 find_package(Boost REQUIRED)
 
-add_library(Toybox SHARED ${TOYBOX_HEADERS} ${TOYBOX_SOURCES})
+add_library(Toybox SHARED ${TOYBOX_SOURCES})
 set_target_properties(Toybox PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
 target_link_libraries(Toybox Boost::headers)
