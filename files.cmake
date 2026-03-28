@@ -5,6 +5,7 @@ set(TOYBOX_HEADERS
     include/Toybox/CallbackOwner.h
     include/Toybox/Client.h
     include/Toybox/Common.h
+    include/Toybox/CopyOnWrite.h
     include/Toybox/FlatMap.h
     include/Toybox/Logger.h
     include/Toybox/NetworkComponent.h
