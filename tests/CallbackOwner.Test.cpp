@@ -49,4 +49,14 @@ TEST(CallbackOwner, callbacksFromMultipleLists) {
     EXPECT_EQ(counter, 2);
 }
 
+TEST(CallbackOwner, safeWhenCallbackListDestroyedFirst) {
+    CallbackOwner owner;
+    {
+        CallbackList<void()> list;
+        owner.registerCallback(list.add([]() {}));
+    } // list destroyed here — owner still holds the CallbackLifetime
+    // owner destroyed here — must NOT crash / use-after-free
+    EXPECT_TRUE(true);
+}
+
 TOYBOX_NAMESPACE_END
