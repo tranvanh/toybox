@@ -80,7 +80,7 @@ TEST(ThreadSafeQueue, multiConsumerProducer) {
     }
     for (int i = 0; i < numConsumers; ++i) {
         threads.emplace_front([&queue, &result]() {
-            result = result + *queue.pop();
+            result += *queue.pop();
         });
     }
     for (auto& t : threads) {
