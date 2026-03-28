@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.22)
+cmake_minimum_required(VERSION 3.23)
 project(Toybox)
 
 set(CMAKE_CXX_STANDARD 23)
@@ -61,15 +61,17 @@ include(files.cmake)
 
 find_package(Boost REQUIRED)
 
-add_library(Toybox SHARED ${TOYBOX_SOURCES})
+add_library(Toybox SHARED)
 set_target_properties(Toybox PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
-target_link_libraries(Toybox Boost::headers)
-
-target_include_directories(Toybox PUBLIC
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-    $<INSTALL_INTERFACE:include>
+target_sources(Toybox
+    PRIVATE ${TOYBOX_SOURCES}
+    PUBLIC FILE_SET HEADERS
+        BASE_DIRS include
+        FILES ${TOYBOX_HEADERS}
 )
+
+target_link_libraries(Toybox Boost::headers)
 
 target_compile_definitions(Toybox PUBLIC
     $<$<CONFIG:Release>:RELEASE_BUILD>
@@ -77,16 +79,12 @@ target_compile_definitions(Toybox PUBLIC
     $<$<CONFIG:Debug>:DEBUG_BUILD>
 )
 
-install(DIRECTORY include/
-    DESTINATION include
-    FILES_MATCHING PATTERN "*.h"
-)
-
 install(TARGETS Toybox
     EXPORT ToyboxTargets
     ARCHIVE DESTINATION lib
     LIBRARY DESTINATION lib
     RUNTIME DESTINATION bin
+    FILE_SET HEADERS DESTINATION include
 )
 
 install(EXPORT ToyboxTargets
