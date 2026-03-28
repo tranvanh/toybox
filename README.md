@@ -4,8 +4,8 @@ A C++23 utility library providing networking, threading, serialization, and call
 
 ## Requirements
 
-- CMake 3.22+
-- C++23 compiler
+- CMake 3.23+
+- GCC 12+ (required for `std::atomic<std::shared_ptr<T>>`)
 - Boost (headers only)
 - Ninja Multi-Config generator (when building standalone)
 
@@ -54,14 +54,14 @@ Then include headers as:
 ## Building Standalone
 
 ```sh
-cmake -G "Ninja Multi-Config" -B build
+cmake -G "Ninja Multi-Config" -B build -DCMAKE_CXX_COMPILER=g++-12
 cmake --build build --config Debug
 ```
 
 To build with tests:
 
 ```sh
-cmake -G "Ninja Multi-Config" -B build -DBUILD_TESTS=ON
+cmake -G "Ninja Multi-Config" -B build -DCMAKE_CXX_COMPILER=g++-12 -DBUILD_TESTS=ON
 cmake --build build --config Debug
 ctest --test-dir build --build-config Debug
 ```
