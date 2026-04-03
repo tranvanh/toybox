@@ -128,4 +128,42 @@ TEST(ThreadSafeQueue, popDrainedAfterStop) {
     EXPECT_FALSE(tsQueue.pop().has_value());
 }
 
+TEST(ThreadSafeQueue, multiProducerMultiConsumerStability) {
+    constexpr int N            = 100'000;
+    constexpr int numProducers = 4;
+    constexpr int numConsumers = 4;
+
+    ThreadSafeQueue<int>     q;
+    std::atomic<int>         produced{0};
+    std::atomic<int>         consumed{0};
+    std::atomic<long long>   sum{0};
+    std::vector<std::thread> threads;
+    threads.reserve(numProducers + numConsumers);
+
+    for (int i = 0; i < numProducers; ++i) {
+        threads.emplace_back([&]() {
+            int item;
+            while ((item = produced.fetch_add(1, std::memory_order_relaxed)) < N)
+                q.push(item);
+        });
+    }
+
+    for (int i = 0; i < numConsumers; ++i) {
+        threads.emplace_back([&]() {
+            while (consumed.load(std::memory_order_relaxed) < N) {
+                if (auto val = q.try_pop()) {
+                    sum.fetch_add(*val, std::memory_order_relaxed);
+                    consumed.fetch_add(1, std::memory_order_relaxed);
+                }
+            }
+        });
+    }
+
+    for (auto& t : threads) t.join();
+
+    constexpr long long expected = static_cast<long long>(N) * (N - 1) / 2;
+    EXPECT_EQ(sum.load(), expected);
+    EXPECT_TRUE(q.empty());
+}
+
 TOYBOX_NAMESPACE_END

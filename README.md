@@ -50,6 +50,7 @@ Then include headers as:
 | `Serialization.h` | `ostream` serialization for ranges, pairs, and custom types |
 | `Logger.h` | Thread-safe logger with timestamps |
 | `CopyOnWrite.h` | Thread-safe copy-on-write wrapper |
+| `LockFreeRingQueue.h` | Lock-free MPMC ring queue (power-of-two capacity, trivially copyable types) |
 | `Common.h` | Shared macros and namespace definitions |
 
 ## Building Standalone
