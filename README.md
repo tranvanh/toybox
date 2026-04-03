@@ -43,6 +43,7 @@ Then include headers as:
 | `NetworkComponent.h` | Shared networking primitives |
 | `ThreadPool.h` | Fixed-size thread pool |
 | `ThreadSafeQueue.h` | Thread-safe queue with priority support |
+| `LockFreeRingQueue.h` | Lock-free MPMC ring queue (power-of-two capacity, trivially copyable types) |
 | `CallbackList.h` | Thread-safe list of callbacks |
 | `CallbackLifetime.h` | RAII handle for managing callback lifetimes |
 | `CallbackOwner.h` | Owns a set of callback registrations |
@@ -50,7 +51,6 @@ Then include headers as:
 | `Serialization.h` | `ostream` serialization for ranges, pairs, and custom types |
 | `Logger.h` | Thread-safe logger with timestamps |
 | `CopyOnWrite.h` | Thread-safe copy-on-write wrapper |
-| `LockFreeRingQueue.h` | Lock-free MPMC ring queue (power-of-two capacity, trivially copyable types) |
 | `Common.h` | Shared macros and namespace definitions |
 
 ## Building Standalone
