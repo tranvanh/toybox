@@ -23,9 +23,15 @@ public:
     std::shared_ptr<const T> get() const { return mData.load(); }
 
     void write(const std::function<void(T&)>& mutateFn) {
-        auto copy = std::make_shared<T>(*mData.load());
+        auto dataPtr = mData.load();
+        auto copy = std::make_shared<T>(*dataPtr);
         mutateFn(*copy);
-        mData.store(std::move(copy));
+
+        while (!mData.compare_exchange_weak(dataPtr, copy, std::memory_order_release, std::memory_order_acquire)) {
+            ASSERT(dataPtr != nullptr, "Invalid data");
+            *copy = *dataPtr;
+            mutateFn(*copy);
+        }
     }
 };
 

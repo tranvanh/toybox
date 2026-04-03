@@ -113,6 +113,26 @@ TEST(CopyOnWrite, ConcurrentWritersProduceValidValue) {
     EXPECT_LE(result, 1000);
 }
 
+// The CAS retry loop guarantees no write is lost under contention.
+// 4 threads each incrementing 250 times must produce exactly 1000.
+TEST(CopyOnWrite, updateStability) {
+    constexpr int numThreads = 4;
+    constexpr int numWritesPerThread = 250;
+    CopyOnWrite<int> cow(0);
+
+    std::vector<std::thread> writers;
+    for (int i = 0; i < numThreads; ++i) {
+        writers.emplace_back([&] {
+            for (int j = 0; j < numWritesPerThread; ++j)
+                cow.write([](int& v) { v++; });
+        });
+    }
+
+    for (auto& t : writers) t.join();
+
+    EXPECT_EQ(*cow.get(), numThreads * numWritesPerThread);
+}
+
 static_assert(!std::copy_constructible<CopyOnWrite<int>>,
     "CopyOnWrite must not be copy constructible");
 static_assert(!std::is_copy_assignable_v<CopyOnWrite<int>>,

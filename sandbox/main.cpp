@@ -1,14 +1,10 @@
 #include "Toybox/Common.h"
-#include "Toybox/Client.h"
+#include "Toybox/LockFreeRingQueue.h"
 
 TOYBOX_NAMESPACE_BEGIN
 
 void sandbox() {
-    Client client;
-    client.connect("127.0.0.1", 8080);
-    client.sendMessage("hello world");
-    client.run();
-    std::cout << "finised" << std::endl;
+    LockFreeRingQueue<int, 8> queue;
     // Add sandbox code
 }
 

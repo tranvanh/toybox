@@ -7,6 +7,7 @@ set(TOYBOX_HEADERS
     include/Toybox/Common.h
     include/Toybox/CopyOnWrite.h
     include/Toybox/FlatMap.h
+    include/Toybox/LockFreeRingQueue.h
     include/Toybox/Logger.h
     include/Toybox/NetworkComponent.h
     include/Toybox/Serialization.h
