@@ -1,14 +1,16 @@
 #pragma once
 #include "Toybox/Common.h"
 #include <boost/asio.hpp>
+#include <deque>
 #include <functional>
 
 TOYBOX_NAMESPACE_BEGIN
 
 class Client {
-    boost::asio::io_context              mContext;
-    mutable boost::asio::ip::tcp::socket mSocket;
-    mutable std::vector<char>            mSendFrame;
+    mutable boost::asio::io_context      mContext;
+    mutable boost::asio::ip::tcp::socket  mSocket;
+    mutable std::deque<std::vector<char>> mSendQueue;
+    mutable bool                          mWriteInProgress = false;
     struct {
         std::vector<char> body   = std::vector<char>(BUFSIZ);
         std::size_t       length = 0;
@@ -29,6 +31,7 @@ public:
 private:
     void readHeader();
     void readBody();
+    void doWrite() const;
 };
 
 TOYBOX_NAMESPACE_END

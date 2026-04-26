@@ -35,15 +35,28 @@ void Client::subscribe() {
 
 void Client::sendMessage(const std::string& msg) const {
     const std::size_t len = msg.size();
-    mSendFrame.resize(sizeof(len) + len);
-    std::memcpy(mSendFrame.data(), &len, sizeof(len));
-    std::memcpy(mSendFrame.data() + sizeof(len), msg.data(), len);
+    std::vector<char> frame(sizeof(len) + len);
+    std::memcpy(frame.data(), &len, sizeof(len));
+    std::memcpy(frame.data() + sizeof(len), msg.data(), len);
+    boost::asio::post(mContext.get_executor(), [this, frame = std::move(frame)]() mutable {
+        mSendQueue.push_back(std::move(frame));
+        if (!mWriteInProgress)
+            doWrite();
+    });
+}
 
+void Client::doWrite() const {
+    mWriteInProgress = true;
     boost::asio::async_write(
         mSocket,
-        boost::asio::buffer(mSendFrame),
-        [](std::error_code ec, std::size_t) {
-            if (ec) {
+        boost::asio::buffer(mSendQueue.front()),
+        [this](boost::system::error_code ec, std::size_t) {
+            mSendQueue.pop_front();
+            if (!ec) {
+                if (!mSendQueue.empty()) doWrite();
+                else mWriteInProgress = false;
+            } else {
+                mWriteInProgress = false;
                 Logger::instance().log(Logger::LogLevel::ERROR, "Send failed");
             }
         });
