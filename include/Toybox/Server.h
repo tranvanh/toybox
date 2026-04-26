@@ -13,6 +13,7 @@ class Server {
     boost::asio::io_context         mContext;
     boost::asio::ip::tcp::acceptor  mAcceptor;
     unsigned                        mThreadCount;
+    std::vector<std::thread> mThreads;
     struct {
         std::unordered_set<std::shared_ptr<Session>> data;
         mutable std::shared_mutex                    mtx;
@@ -24,8 +25,9 @@ public:
     void run();
 
     void broadcast(const std::string& msg);
-    void removeSession(Session* session);
     std::size_t sessionCount() const;
+    std::size_t subscriberCount() const;
+    void removeSession(Session* session);
 
     std::function<void(std::string)> onRecieve;
     std::function<void(const unsigned short)> onConnect;

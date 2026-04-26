@@ -2,6 +2,7 @@
 #include "Toybox/Logger.h"
 #include "Toybox/NetworkComponent.h"
 #include <algorithm>
+#include <atomic>
 #include <cstring>
 #include <deque>
 #include <vector>
@@ -11,9 +12,10 @@ TOYBOX_NAMESPACE_BEGIN
 class Session final : public NetworkComponent {
     friend class Server;
 
-    boost::asio::strand<boost::asio::io_context::executor_type> mStrand;
-    Server&       mServer;
-    unsigned short mRemotePort = 0;
+    boost::asio::strand<boost::asio::any_io_executor> mStrand;
+    Server&            mServer;
+    unsigned short     mRemotePort = 0;
+    std::atomic<bool>  mIsSubscriber{false};
 
     struct {
         std::vector<char> body   = std::vector<char>(BUFSIZ);
@@ -32,6 +34,7 @@ public:
     virtual ~Session() = default;
     virtual void start() override;
     virtual void read() override;
+
     virtual void write() override {}
 
     void post(const std::string& msg);
@@ -59,6 +62,10 @@ void Session::readHeader() {
         boost::asio::bind_executor(mStrand, [this, self](boost::system::error_code ec, std::size_t) {
             if (!ec) {
                 readBody();
+            } else {
+                mServer.removeSession(this);
+                if (mServer.onDisconnect)
+                    mServer.onDisconnect(mRemotePort);
             }
         }));
 }
@@ -72,8 +79,11 @@ void Session::readBody() {
         boost::asio::buffer(mMessage.body, mMessage.length * sizeof(char)),
         boost::asio::bind_executor(mStrand, [this, self](boost::system::error_code ec, [[maybe_unused]] std::size_t length) {
             if (!ec) {
-                if (mServer.onRecieve) {
-                    mServer.onRecieve(std::string(mMessage.body.data(), mMessage.length));
+                std::string_view body(mMessage.body.data(), mMessage.length);
+                if (body == kSubscribeMessage) {
+                    mIsSubscriber.store(true, std::memory_order_relaxed);
+                } else if (mServer.onRecieve) {
+                    mServer.onRecieve(std::string(body));
                 }
                 readHeader();
             } else {
@@ -131,22 +141,24 @@ Server::Server(short port, unsigned threadCount)
 
 Server::~Server() {
     mContext.stop();
+    for (auto& t : mThreads)
+        t.join();
 }
 
 void Server::run() {
     accept();
-    std::vector<std::thread> threads;
-    threads.reserve(mThreadCount);
-    for (unsigned i = 0; i < mThreadCount; ++i)
-        threads.emplace_back([this] { mContext.run(); });
-    for (auto& t : threads)
-        t.join();
+    mThreads.reserve(mThreadCount);
+    for (unsigned i = 0; i < mThreadCount; ++i) {
+        mThreads.emplace_back([this] { mContext.run(); });
+    }
 }
 
 void Server::broadcast(const std::string& msg) {
     std::shared_lock lock(mActiveSessions.mtx);
-    for (const auto& session : mActiveSessions.data)
-        session->post(msg);
+    for (const auto& session : mActiveSessions.data) {
+        if (session->mIsSubscriber.load(std::memory_order_relaxed))
+            session->post(msg);
+    }
 }
 
 void Server::removeSession(Session* session) {
@@ -159,6 +171,14 @@ void Server::removeSession(Session* session) {
 std::size_t Server::sessionCount() const {
     std::shared_lock lock(mActiveSessions.mtx);
     return mActiveSessions.data.size();
+}
+
+std::size_t Server::subscriberCount() const {
+    std::shared_lock lock(mActiveSessions.mtx);
+    return std::count_if(mActiveSessions.data.begin(), mActiveSessions.data.end(),
+                         [](const std::shared_ptr<Session>& s) {
+                             return s->mIsSubscriber.load(std::memory_order_relaxed);
+                         });
 }
 
 void Server::accept() {

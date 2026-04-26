@@ -1,5 +1,7 @@
 #include "Toybox/Client.h"
 #include "Toybox/Logger.h"
+#include "Toybox/NetworkComponent.h"
+#include <cstring>
 
 TOYBOX_NAMESPACE_BEGIN
 
@@ -27,17 +29,19 @@ void Client::stop() {
     mContext.stop();
 }
 
+void Client::subscribe() {
+    sendMessage(std::string(kSubscribeMessage));
+}
+
 void Client::sendMessage(const std::string& msg) const {
-    const auto len = msg.size();
+    const std::size_t len = msg.size();
+    mSendFrame.resize(sizeof(len) + len);
+    std::memcpy(mSendFrame.data(), &len, sizeof(len));
+    std::memcpy(mSendFrame.data() + sizeof(len), msg.data(), len);
 
-    mBuffer.clear();
-    mBuffer.emplace_back(boost::asio::buffer(&len, sizeof(len)));
-    mBuffer.emplace_back(boost::asio::buffer(msg));
-
-    // guaranteed to send complete buffers
     boost::asio::async_write(
         mSocket,
-        mBuffer,
+        boost::asio::buffer(mSendFrame),
         [](std::error_code ec, std::size_t) {
             if (ec) {
                 Logger::instance().log(Logger::LogLevel::ERROR, "Send failed");

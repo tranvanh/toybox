@@ -37,14 +37,17 @@ TEST(ServerClient, BroadcastSingleClient) {
     std::thread clientThread([&] { client.run(); });
 
     ASSERT_TRUE(waitFor([&] { return connected.load(); }));
+    client.subscribe();
+    ASSERT_TRUE(waitFor([&] { return server.subscriberCount() >= 1u; }));
 
     server.broadcast("hello");
 
     ASSERT_TRUE(waitFor([&] { return received.load(); }));
     EXPECT_EQ(receivedMsg, "hello");
 
-    serverThread.detach();
-    clientThread.detach();
+    client.stop();
+    clientThread.join();
+    serverThread.join();
 }
 
 // ── BroadcastMultipleClients ───────────────────────────────────────────────
@@ -72,6 +75,9 @@ TEST(ServerClient, BroadcastMultipleClients) {
     }
 
     ASSERT_TRUE(waitFor([&] { return connected.load() == N; }));
+    for (int i = 0; i < N; ++i)
+        clients[i].subscribe();
+    ASSERT_TRUE(waitFor([&] { return server.subscriberCount() >= static_cast<std::size_t>(N); }));
 
     server.broadcast("multicast");
 
@@ -80,8 +86,11 @@ TEST(ServerClient, BroadcastMultipleClients) {
         EXPECT_EQ(messages[i], "multicast");
     }
 
-    serverThread.detach();
-    for (auto& t : clientThreads) t.detach();
+    for (int i = 0; i < N; ++i) {
+        clients[i].stop();
+        clientThreads[i].join();
+    }
+    serverThread.join();
 }
 
 // ── BroadcastHighLoad ──────────────────────────────────────────────────────
@@ -102,6 +111,8 @@ TEST(ServerClient, BroadcastHighLoad) {
     std::thread clientThread([&] { client.run(); });
 
     ASSERT_TRUE(waitFor([&] { return connected.load(); }));
+    client.subscribe();
+    ASSERT_TRUE(waitFor([&] { return server.subscriberCount() >= 1u; }));
 
     for (int i = 0; i < MESSAGES; ++i)
         server.broadcast("msg");
@@ -109,8 +120,9 @@ TEST(ServerClient, BroadcastHighLoad) {
     ASSERT_TRUE(waitFor([&] { return count.load() >= MESSAGES; }, std::chrono::seconds(10)));
     EXPECT_EQ(count.load(), MESSAGES);
 
-    serverThread.detach();
-    clientThread.detach();
+    client.stop();
+    clientThread.join();
+    serverThread.join();
 }
 
 // ── ClientOnReceiveNotCalledBeforeBroadcast ────────────────────────────────
@@ -134,8 +146,37 @@ TEST(ServerClient, ClientOnReceiveNotCalledBeforeBroadcast) {
     std::this_thread::sleep_for(std::chrono::milliseconds(200));
     EXPECT_FALSE(received.load());
 
-    serverThread.detach();
-    clientThread.detach();
+    client.stop();
+    clientThread.join();
+    serverThread.join();
+}
+
+// ── NonSubscriberDoesNotReceiveBroadcast ───────────────────────────────────
+
+TEST(ServerClient, NonSubscriberDoesNotReceiveBroadcast) {
+    Server server(9105, 1);
+    std::atomic<bool> connected{false};
+    server.onConnect = [&](unsigned short) { connected.store(true); };
+
+    std::thread serverThread([&] { server.run(); });
+
+    Client            client;
+    std::atomic<bool> received{false};
+    client.onReceive = [&](std::string) { received.store(true); };
+
+    ASSERT_TRUE(client.connect("127.0.0.1", 9105));
+    std::thread clientThread([&] { client.run(); });
+
+    ASSERT_TRUE(waitFor([&] { return connected.load(); }));
+
+    server.broadcast("ignored");
+
+    std::this_thread::sleep_for(std::chrono::milliseconds(200));
+    EXPECT_FALSE(received.load());
+
+    client.stop();
+    clientThread.join();
+    serverThread.join();
 }
 
 // ── DisconnectedSessionRemoved ─────────────────────────────────────────────
@@ -155,15 +196,14 @@ TEST(ServerClient, DisconnectedSessionRemoved) {
         ASSERT_TRUE(waitFor([&] { return connected.load(); }));
         EXPECT_EQ(server.sessionCount(), 1u);
 
-        // stop() before join() so no async handlers race with destruction
         client.stop();
         clientThread.join();
-    } // client destroyed here — no live threads accessing it
+    }
 
     ASSERT_TRUE(waitFor([&] { return server.sessionCount() == 0u; }));
     EXPECT_EQ(server.sessionCount(), 0u);
 
-    serverThread.detach();
+    serverThread.join();
 }
 
 TOYBOX_NAMESPACE_END
