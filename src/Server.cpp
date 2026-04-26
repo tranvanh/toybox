@@ -186,13 +186,13 @@ void Server::accept() {
         if (!ec) {
             const auto           remote_endpoint = socket.remote_endpoint();
             const unsigned short port            = remote_endpoint.port();
-            if (onConnect) {
-                onConnect(port);
-            }
             auto session = std::make_shared<Session>(std::move(socket), *this);
             {
                 std::unique_lock lock(mActiveSessions.mtx);
                 mActiveSessions.data.insert(session);
+            }
+            if (onConnect) {
+                onConnect(port);
             }
             session->start();
         }

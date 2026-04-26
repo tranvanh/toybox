@@ -206,4 +206,151 @@ TEST(ServerClient, DisconnectedSessionRemoved) {
     serverThread.join();
 }
 
+// ── HighLoadClientToServer ────────────────────────────────────────────────
+
+TEST(ServerClient, HighLoadClientToServer) {
+    constexpr int MESSAGES = 10'000;
+    Server        server(9106, 2);
+    std::atomic<int> received{0};
+    server.onRecieve = [&](std::string) { received.fetch_add(1); };
+
+    std::thread serverThread([&] { server.run(); });
+
+    Client client;
+    std::atomic<bool> connected{false};
+    server.onConnect = [&](unsigned short) { connected.store(true); };
+
+    ASSERT_TRUE(client.connect("127.0.0.1", 9106));
+    std::thread clientThread([&] { client.run(); });
+
+    ASSERT_TRUE(waitFor([&] { return connected.load(); }));
+
+    for (int i = 0; i < MESSAGES; ++i)
+        client.sendMessage("msg");
+
+    ASSERT_TRUE(waitFor([&] { return received.load() >= MESSAGES; }, std::chrono::seconds(15)));
+    EXPECT_EQ(received.load(), MESSAGES);
+
+    client.stop();
+    clientThread.join();
+    serverThread.join();
+}
+
+// ── HighLoadBroadcastMultipleClients ─────────────────────────────────────
+
+TEST(ServerClient, HighLoadBroadcastMultipleClients) {
+    constexpr int MESSAGES = 5'000;
+    constexpr int N        = 5;
+    Server        server(9107, 4);
+    std::atomic<int> connected{0};
+    server.onConnect = [&](unsigned short) { connected.fetch_add(1); };
+
+    std::thread serverThread([&] { server.run(); });
+
+    std::array<Client, N>            clients;
+    std::array<std::atomic<int>, N>  counts{};
+    std::vector<std::thread>         clientThreads;
+
+    for (int i = 0; i < N; ++i) {
+        clients[i].onReceive = [&, i](std::string) { counts[i].fetch_add(1); };
+        ASSERT_TRUE(clients[i].connect("127.0.0.1", 9107));
+        clientThreads.emplace_back([&clients, i] { clients[i].run(); });
+    }
+
+    ASSERT_TRUE(waitFor([&] { return connected.load() == N; }));
+    for (int i = 0; i < N; ++i)
+        clients[i].subscribe();
+    ASSERT_TRUE(waitFor([&] { return server.subscriberCount() >= static_cast<std::size_t>(N); }));
+
+    for (int i = 0; i < MESSAGES; ++i)
+        server.broadcast("msg");
+
+    for (int i = 0; i < N; ++i) {
+        ASSERT_TRUE(waitFor([&, i] { return counts[i].load() >= MESSAGES; }, std::chrono::seconds(20)));
+        EXPECT_EQ(counts[i].load(), MESSAGES);
+    }
+
+    for (int i = 0; i < N; ++i) {
+        clients[i].stop();
+        clientThreads[i].join();
+    }
+    serverThread.join();
+}
+
+// ── HighLoadBidirectional ─────────────────────────────────────────────────
+
+TEST(ServerClient, HighLoadBidirectional) {
+    constexpr int MESSAGES = 5'000;
+    Server        server(9108, 2);
+    std::atomic<bool> connected{false};
+    server.onConnect = [&](unsigned short) { connected.store(true); };
+    std::atomic<int> serverReceived{0};
+    server.onRecieve = [&](std::string) { serverReceived.fetch_add(1); };
+
+    std::thread serverThread([&] { server.run(); });
+
+    Client           client;
+    std::atomic<int> clientReceived{0};
+    client.onReceive = [&](std::string) { clientReceived.fetch_add(1); };
+
+    ASSERT_TRUE(client.connect("127.0.0.1", 9108));
+    std::thread clientThread([&] { client.run(); });
+
+    ASSERT_TRUE(waitFor([&] { return connected.load(); }));
+    client.subscribe();
+    ASSERT_TRUE(waitFor([&] { return server.subscriberCount() >= 1u; }));
+
+    for (int i = 0; i < MESSAGES; ++i) {
+        client.sendMessage("c2s");
+        server.broadcast("s2c");
+    }
+
+    ASSERT_TRUE(waitFor([&] { return serverReceived.load() >= MESSAGES; }, std::chrono::seconds(15)));
+    ASSERT_TRUE(waitFor([&] { return clientReceived.load() >= MESSAGES; }, std::chrono::seconds(15)));
+    EXPECT_EQ(serverReceived.load(), MESSAGES);
+    EXPECT_EQ(clientReceived.load(), MESSAGES);
+
+    client.stop();
+    clientThread.join();
+    serverThread.join();
+}
+
+// ── HighLoadMultipleClientsSendToServer ───────────────────────────────────
+
+TEST(ServerClient, HighLoadMultipleClientsSendToServer) {
+    constexpr int N              = 4;
+    constexpr int MSGS_PER_CLIENT = 2'500;
+    constexpr int TOTAL           = N * MSGS_PER_CLIENT;
+    Server        server(9109, 4);
+    std::atomic<int> connected{0};
+    server.onConnect = [&](unsigned short) { connected.fetch_add(1); };
+    std::atomic<int> received{0};
+    server.onRecieve = [&](std::string) { received.fetch_add(1); };
+
+    std::thread serverThread([&] { server.run(); });
+
+    std::array<Client, N>    clients;
+    std::vector<std::thread> clientThreads;
+
+    for (int i = 0; i < N; ++i) {
+        ASSERT_TRUE(clients[i].connect("127.0.0.1", 9109));
+        clientThreads.emplace_back([&clients, i] { clients[i].run(); });
+    }
+
+    ASSERT_TRUE(waitFor([&] { return connected.load() == N; }));
+
+    for (int i = 0; i < N; ++i)
+        for (int j = 0; j < MSGS_PER_CLIENT; ++j)
+            clients[i].sendMessage("msg");
+
+    ASSERT_TRUE(waitFor([&] { return received.load() >= TOTAL; }, std::chrono::seconds(20)));
+    EXPECT_EQ(received.load(), TOTAL);
+
+    for (int i = 0; i < N; ++i) {
+        clients[i].stop();
+        clientThreads[i].join();
+    }
+    serverThread.join();
+}
+
 TOYBOX_NAMESPACE_END
