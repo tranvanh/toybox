@@ -35,6 +35,7 @@ void Client::subscribe() {
 
 void Client::sendMessage(const std::string& msg) const {
     const std::size_t len = msg.size();
+    // Frame layout: [8-byte length header][body]
     std::vector<char> frame(sizeof(len) + len);
     std::memcpy(frame.data(), &len, sizeof(len));
     std::memcpy(frame.data() + sizeof(len), msg.data(), len);
