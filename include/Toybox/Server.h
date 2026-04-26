@@ -1,6 +1,8 @@
 #pragma once
 #include "Toybox/Common.h"
 #include <boost/asio.hpp>
+#include <shared_mutex>
+#include <thread>
 #include <unordered_set>
 
 TOYBOX_NAMESPACE_BEGIN
@@ -8,17 +10,24 @@ TOYBOX_NAMESPACE_BEGIN
 class Session;
 
 class Server {
-    boost::asio::io_context                    mContext;
-    boost::asio::ip::tcp::acceptor              mAcceptor;
+    boost::asio::io_context         mContext;
+    boost::asio::ip::tcp::acceptor  mAcceptor;
+    unsigned                        mThreadCount;
+    std::vector<std::thread> mThreads;
     struct {
         std::unordered_set<std::shared_ptr<Session>> data;
-        mutable std::mutex                           mtx;
+        mutable std::shared_mutex                    mtx;
     } mActiveSessions;
 
 public:
-    explicit Server(short port);
+    explicit Server(short port, unsigned threadCount = std::thread::hardware_concurrency());
     ~Server();
     void run();
+
+    void broadcast(const std::string& msg);
+    std::size_t sessionCount() const;
+    std::size_t subscriberCount() const;
+    void removeSession(Session* session);
 
     std::function<void(std::string)> onRecieve;
     std::function<void(const unsigned short)> onConnect;
@@ -26,7 +35,6 @@ public:
 
 private:
     void accept();
-
 };
 
 TOYBOX_NAMESPACE_END
