@@ -1,8 +1,11 @@
 #pragma once
 #include "Toybox/Common.h"
 #include <boost/asio.hpp>
+#include <string_view>
 
 TOYBOX_NAMESPACE_BEGIN
+
+inline constexpr std::string_view kSubscribeMessage = "\x01SUBSCRIBE";
 
 class NetworkComponent : public std::enable_shared_from_this<NetworkComponent> {
 public:
