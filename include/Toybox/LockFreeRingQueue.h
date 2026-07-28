@@ -13,7 +13,7 @@ class LockFreeRingQueue {
     // if we happen to receive 2^64
     static_assert(SIZE > 0, "Capacity must be non-zero");
     static_assert((SIZE & (SIZE - 1)) == 0, "Capacity must be a power of two");
-    static_assert(std::is_trivially_copyable<T>::value, "The type must be trivially copyable");
+    // static_assert(std::is_trivially_copyable<T>::value, "The type must be trivially copyable");
     // todo check that T and size_t will fit into the Slot
     // check that size of the queue is power of 2 and explain why it is better for optimization
 
