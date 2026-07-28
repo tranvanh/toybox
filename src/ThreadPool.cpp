@@ -18,6 +18,7 @@ void ThreadPool::run() {
     for (int i = 0; i < mWorkersCount; ++i) {
         mWorkers.emplace_back([this]() {
             while (mIsRunning) {
+                // pop() wakes with nullopt when stop() is called on the queue.
                 auto task = mTasksQueue.pop();
                 if (task) {
                     (*task)();
@@ -37,6 +38,7 @@ void ThreadPool::stop() {
         worker.join();
     }
     mWorkers.clear();
+    // Preserve queued work rather than dropping it during shutdown.
     while (!mTasksQueue.empty()) {
         auto task = mTasksQueue.pop();
         if (task) {

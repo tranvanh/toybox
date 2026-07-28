@@ -45,9 +45,9 @@ public:
     std::function<void(std::string)> onReceive;
 
 private:
-    void readHeader();  // async-reads the 8-byte length prefix
-    void readBody();    // async-reads exactly mReceiveMessage.length bytes
-    void doWrite() const;  // pops and writes the front of mSendQueue
+    void readHeader();    // async-reads the native-size length prefix
+    void readBody();      // async-reads exactly mReceiveMessage.length bytes
+    void doWrite() const; // pops and writes the front of mSendQueue
 };
 
 TOYBOX_NAMESPACE_END

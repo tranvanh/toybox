@@ -7,6 +7,11 @@
 
 TOYBOX_NAMESPACE_BEGIN
 
+/// Bounded multi-producer/multi-consumer ring queue.
+///
+/// SIZE must be a power of two so indexes can wrap with a bitmask. Each slot
+/// carries a sequence number that distinguishes empty, full, and recycled slots
+/// without a central lock.
 template <typename T, size_t SIZE>
 class LockFreeRingQueue {
     static constexpr size_t MASK = SIZE - 1;
@@ -46,6 +51,7 @@ public:
         }
     }
 
+    /// Attempts to enqueue value; returns false when the ring is full.
     bool try_push(T value) {
         size_t         writePos;
         size_t         seq;
@@ -93,6 +99,7 @@ public:
         }
     }
 
+    /// Attempts to dequeue a value; returns std::nullopt when the ring is empty.
     std::optional<T> try_pop() {
         size_t           readerPos;
         size_t           seq;

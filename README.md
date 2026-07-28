@@ -2,6 +2,8 @@
 
 A C++23 utility library providing networking, threading, serialization, and callback primitives.
 
+The public headers include inline documentation for the main APIs and behavior-sensitive implementation details such as callback lifetime, queue shutdown, copy-on-write publication, and the TCP frame protocol.
+
 ## Requirements
 
 - CMake 3.23+
@@ -42,8 +44,8 @@ Then include headers as:
 | `Server.h` | Async TCP server (Boost.Asio) |
 | `NetworkComponent.h` | Shared networking primitives |
 | `ThreadPool.h` | Fixed-size thread pool |
-| `ThreadSafeQueue.h` | Thread-safe queue with priority support |
-| `LockFreeRingQueue.h` | Lock-free MPMC ring queue (power-of-two capacity, trivially copyable types) |
+| `ThreadSafeQueue.h` | Mutex-protected FIFO queue with blocking and non-blocking pops |
+| `LockFreeRingQueue.h` | Bounded lock-free MPMC ring queue with power-of-two capacity |
 | `CallbackList.h` | Thread-safe list of callbacks |
 | `CallbackLifetime.h` | RAII handle for managing callback lifetimes |
 | `CallbackOwner.h` | Owns a set of callback registrations |
@@ -52,6 +54,10 @@ Then include headers as:
 | `Logger.h` | Thread-safe logger with timestamps |
 | `CopyOnWrite.h` | Thread-safe copy-on-write wrapper |
 | `Common.h` | Shared macros and namespace definitions |
+
+## Documentation
+
+The codebase uses Doxygen-style comments on public types and methods. To browse the API, start in `include/Toybox/`; implementation comments in `src/` focus on concurrency, ownership, and protocol decisions that are easy to miss from the declarations alone.
 
 ## Building Standalone
 
@@ -67,6 +73,8 @@ cmake -G "Ninja Multi-Config" -B build -DCMAKE_CXX_COMPILER=g++-12 -DBUILD_TESTS
 cmake --build build --config Debug
 ctest --test-dir build --build-config Debug
 ```
+
+The networking tests open local TCP sockets. In restricted sandboxes, those tests may fail with `open: Operation not permitted`; rerun them in an environment that permits loopback sockets.
 
 To build with benchmarks:
 

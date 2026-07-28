@@ -12,6 +12,10 @@ static CallbackId nextId = 0;
 template <typename Signature>
 class CallbackList;
 
+/// Thread-safe callback collection for a given function signature.
+///
+/// Adding a callback returns a CallbackLifetime. Destroying that token removes
+/// the callback, so callers do not need to remember an id or call unregister.
 template <typename Ret, typename... Args>
 class CallbackList<Ret(Args...)> {
     using Callback = std::function<Ret(Args...)>;
@@ -24,6 +28,7 @@ class CallbackList<Ret(Args...)> {
     std::shared_ptr<State> mState = std::make_shared<State>();
 
 public:
+    /// Invokes every currently registered callback while holding the list lock.
     void operator()(Args&&... args) {
         std::lock_guard<std::mutex> lock(mState->lock);
         for (const auto& callback : mState->list) {
@@ -31,6 +36,7 @@ public:
         }
     }
 
+    /// Registers a callback and returns the token that owns that registration.
     [[nodiscard]] CallbackLifetime add(Callback callback) {
         CallbackId                   id = nextId++;
         std::unique_lock<std::mutex> lock(mState->lock);

@@ -12,6 +12,8 @@ TOYBOX_NAMESPACE_BEGIN
 class Session final : public NetworkComponent {
     friend class Server;
 
+    // Serializes this session's handlers even though the server io_context may
+    // run on multiple threads.
     boost::asio::strand<boost::asio::any_io_executor> mStrand;
     Server&            mServer;
     unsigned short     mRemotePort = 0;
@@ -55,6 +57,8 @@ void Session::read() {
 }
 
 void Session::readHeader() {
+    // Hold shared ownership until the async handler runs. Without self, the
+    // server could erase the session while an operation is still outstanding.
     auto self = shared_from_this();
     boost::asio::async_read(
         mSocket,
@@ -80,6 +84,8 @@ void Session::readBody() {
         boost::asio::bind_executor(mStrand, [this, self](boost::system::error_code ec, [[maybe_unused]] std::size_t length) {
             if (!ec) {
                 std::string_view body(mMessage.body.data(), mMessage.length);
+                // Subscribe is a control frame; all other frames are delivered
+                // to user code as application messages.
                 if (body == kSubscribeMessage) {
                     mIsSubscriber.store(true, std::memory_order_relaxed);
                 } else if (mServer.onRecieve) {
@@ -97,6 +103,7 @@ void Session::readBody() {
 
 void Session::post(const std::string& msg) {
     const std::size_t len = msg.size();
+    // Server and client share the same length-prefixed frame layout.
     std::vector<char> frame(sizeof(len) + len);
     std::memcpy(frame.data(), &len, sizeof(len));
     std::memcpy(frame.data() + sizeof(len), msg.data(), len);
@@ -140,12 +147,15 @@ Server::Server(short port, unsigned threadCount)
     , mThreadCount(std::max(1u, threadCount)) {}
 
 Server::~Server() {
+    // Stopping the context releases outstanding async operations so worker
+    // threads can exit their run() calls.
     mContext.stop();
     for (auto& t : mThreads)
         t.join();
 }
 
 void Server::run() {
+    // Start accepting before the worker threads enter the io_context.
     accept();
     mThreads.reserve(mThreadCount);
     for (unsigned i = 0; i < mThreadCount; ++i) {
@@ -163,6 +173,8 @@ void Server::broadcast(const std::string& msg) {
 
 void Server::removeSession(Session* session) {
     std::unique_lock lock(mActiveSessions.mtx);
+    // Sessions are stored by shared_ptr, while async handlers report the raw
+    // this pointer they already own.
     mActiveSessions.data.erase(
         std::find_if(mActiveSessions.data.begin(), mActiveSessions.data.end(),
                      [session](const std::shared_ptr<Session>& s) { return s.get() == session; }));
@@ -196,6 +208,7 @@ void Server::accept() {
             }
             session->start();
         }
+        // Keep the accept loop alive after each completion.
         accept();
     });
 }

@@ -7,7 +7,7 @@
 
 TOYBOX_NAMESPACE_BEGIN
 
-/// Interface used for Seriazable objects
+/// Interface for objects that provide custom stream serialization.
 struct Serializable {
     virtual ~Serializable() = default;
     virtual std::ostream& serialize(std::ostream& os) const = 0;
@@ -18,6 +18,8 @@ TOYBOX_NAMESPACE_END
 std::ostream& operator<<(std::ostream& os, const toybox::Serializable& trade);
 
 using timepoint_t = std::chrono::time_point<std::chrono::system_clock>;
+
+/// Streams a system_clock time point as local time with millisecond precision.
 std::ostream& operator<<(std::ostream& os, const timepoint_t& timepoint);
 
 /// Concept for pairs

@@ -14,9 +14,12 @@ concept FlatMapKey =
 template <typename T>
 concept FlatMapValue = std::destructible<T> && !std::is_reference_v<T> && std::is_move_assignable_v<T>;
 
+/// Sorted vector-backed associative container.
+///
+/// FlatMap trades O(n) insertion/erase for compact storage and cache-friendly
+/// lookup. Keys are unique and the underlying vector is kept sorted by key.
 template <FlatMapKey TKey, FlatMapValue TValue, size_t TInitSize = 10>
 requires(TInitSize > 0)
-
 class FlatMap {
     using Item          = std::pair<TKey, TValue>;
     using Iterator      = std::vector<Item>::iterator;
@@ -28,12 +31,15 @@ class FlatMap {
     size_t mFilledSize = 0;
 
 public:
+    /// Creates a map ordered by operator< on keys.
     FlatMap()
         : mComp([](const Item& a, const Item& b) {
             return a.first < b.first;
         }) {
         mData.reserve(TInitSize);
     }
+
+    /// Creates a map with a custom strict-weak key comparator.
     FlatMap(const std::function<bool(const TKey&, const TKey&)>& comp)
         : mComp([comp](const Item& a, const Item& b) {
             return comp(a.first, b.first);
@@ -61,6 +67,7 @@ public:
     }
 
 
+    /// Inserts only when the key does not already exist.
     bool insert(const Item& item) {
         auto range = std::equal_range(mData.begin(), mData.begin() + mFilledSize, item, mComp);
         if (range.first != range.second) {
@@ -71,6 +78,7 @@ public:
         return true;
     }
 
+    /// Inserts by move only when the key does not already exist.
     bool insert(Item&& item) {
         auto range = std::equal_range(mData.begin(), mData.begin() + mFilledSize, item, mComp);
         if (range.first != range.second) {
@@ -93,6 +101,7 @@ public:
         return range.first == range.second ? cend() : range.first;
     }
 
+    /// Returns a copy of the mapped value, or std::nullopt when missing.
     std::optional<TValue> get(const TKey& key) const {
         auto pos = find(key);
         return pos != end() ? std::optional<TValue>(pos->second) : std::nullopt;

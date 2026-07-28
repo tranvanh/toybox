@@ -4,6 +4,10 @@
 
 TOYBOX_NAMESPACE_BEGIN
 
+/// Move-only RAII token that unregisters a callback when destroyed.
+///
+/// Callback registration APIs return this object to make ownership explicit:
+/// keep the token alive while the callback should remain registered.
 class CallbackLifetime {
     std::function<void()> mRemoveCallback;
 
@@ -14,7 +18,7 @@ public:
     CallbackLifetime(const std::function<void()>& removeCallback)
         : mRemoveCallback(std::move(removeCallback)) {}
     ~CallbackLifetime() {
-        // remove callback can become null due to std::moves
+        // Moved-from handles have no cleanup responsibility.
         if (mRemoveCallback) {
             mRemoveCallback();
             mRemoveCallback = nullptr;

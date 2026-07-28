@@ -16,6 +16,7 @@ bool Client::connect(const std::string& address, short port) {
     boost::system::error_code ec;
     mSocket.connect(boost::asio::ip::tcp::endpoint(boost::asio::ip::make_address(address), port), ec);
     if (ec == boost::system::errc::success) {
+        // Prime the read loop before run() starts dispatching handlers.
         readHeader();
     }
     return ec == boost::system::errc::success;
@@ -35,12 +36,14 @@ void Client::subscribe() {
 
 void Client::sendMessage(const std::string& msg) const {
     const std::size_t len = msg.size();
-    // Frame layout: [8-byte length header][body]
+    // Frame layout: [native-size length header][body].
     std::vector<char> frame(sizeof(len) + len);
     std::memcpy(frame.data(), &len, sizeof(len));
     std::memcpy(frame.data() + sizeof(len), msg.data(), len);
     boost::asio::post(mContext.get_executor(), [this, frame = std::move(frame)]() mutable {
         mSendQueue.push_back(std::move(frame));
+        // Keep exactly one write in flight; completion handlers continue the
+        // queue until it is empty.
         if (!mWriteInProgress)
             doWrite();
     });
@@ -64,6 +67,7 @@ void Client::doWrite() const {
 }
 
 void Client::readHeader() {
+    // The header is read directly into the reusable receive metadata.
     boost::asio::async_read(
         mSocket,
         boost::asio::buffer(&mReceiveMessage.length, sizeof(mReceiveMessage.length)),
@@ -75,6 +79,7 @@ void Client::readHeader() {
 }
 
 void Client::readBody() {
+    // Resize the reusable body buffer to match the just-read frame length.
     mReceiveMessage.body.resize(mReceiveMessage.length);
     boost::asio::async_read(
         mSocket,

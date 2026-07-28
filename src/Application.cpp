@@ -4,6 +4,8 @@
 TOYBOX_NAMESPACE_BEGIN
 
 Application::~Application() {
+    // Destruction is the final lifecycle boundary; make it safe even when the
+    // caller forgot to stop explicitly.
     isRunning = false;
     mThreadPool.stop();
 }

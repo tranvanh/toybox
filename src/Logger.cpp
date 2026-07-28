@@ -3,6 +3,7 @@
 TOYBOX_NAMESPACE_BEGIN
 
 Logger& Logger::instance() {
+    // Function-local statics are initialized once in a thread-safe way.
     static Logger logger;
     return logger;
 }

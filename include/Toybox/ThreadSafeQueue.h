@@ -8,6 +8,10 @@
 
 TOYBOX_NAMESPACE_BEGIN
 
+/// Mutex-protected FIFO queue with blocking and non-blocking pop operations.
+///
+/// stop() wakes all blocked consumers. Once stopped, pop operations return
+/// std::nullopt when no queued values remain.
 template <typename Type>
 class ThreadSafeQueue {
     std::mutex              m;
@@ -18,14 +22,23 @@ class ThreadSafeQueue {
 
 public:
     ~ThreadSafeQueue() { stop(); }
+
+    /// Appends a copy and wakes one blocked consumer.
     void push(const Type& value);
+
+    /// Appends by move and wakes one blocked consumer.
     void push(Type&& value);
-    // Blocking
+
+    /// Blocks until a value is available or the queue has been stopped.
     std::optional<Type> pop();
-    // Non-Blocking
+
+    /// Attempts to pop immediately without waiting.
     std::optional<Type> try_pop();
 
+    /// Returns true when there are no queued values at the instant checked.
     bool                empty();
+
+    /// Prevents future blocking waits and wakes all current waiters.
     void stop();
 };
 

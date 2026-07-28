@@ -5,6 +5,7 @@
 
 #define ASSERT(Expr, Msg) IMPL_Assert(#Expr, Expr, __FILE__, __LINE__, Msg)
 
+/// Debug/assert-build assertion helper. Compiles to a no-op in RELEASE_BUILD.
 [[maybe_unused]] static void IMPL_Assert([[maybe_unused]] const char* expr_str,[[maybe_unused]] bool expr,[[maybe_unused]] const char* file,[[maybe_unused]] int line,[[maybe_unused]] const char* msg) {
     #if !defined(RELEASE_BUILD)
     if (!expr) {

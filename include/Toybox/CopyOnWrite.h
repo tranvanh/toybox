@@ -8,6 +8,10 @@
 
 TOYBOX_NAMESPACE_BEGIN
 
+/// Atomic copy-on-write wrapper for cheaply publishing immutable snapshots.
+///
+/// Readers get a shared_ptr to the current immutable value. Writers copy the
+/// current value, mutate the copy, and atomically publish it.
 template<std::copy_constructible T>
 class CopyOnWrite {
     std::atomic<std::shared_ptr<const T>> mData;
@@ -20,8 +24,10 @@ public:
 
     CopyOnWrite(CopyOnWrite&& other) noexcept : mData(other.mData.exchange(nullptr)) {}
 
+    /// Returns the currently published snapshot.
     std::shared_ptr<const T> get() const { return mData.load(); }
 
+    /// Applies mutateFn to a private copy and retries if another writer wins.
     void write(const std::function<void(T&)>& mutateFn) {
         auto dataPtr = mData.load();
         auto copy = std::make_shared<T>(*dataPtr);
@@ -29,6 +35,8 @@ public:
 
         while (!mData.compare_exchange_weak(dataPtr, copy, std::memory_order_release, std::memory_order_acquire)) {
             ASSERT(dataPtr != nullptr, "Invalid data");
+            // dataPtr is updated by compare_exchange_weak on failure; rebuild
+            // the candidate from the latest published snapshot before retrying.
             *copy = *dataPtr;
             mutateFn(*copy);
         }

@@ -8,6 +8,7 @@
 
 TOYBOX_NAMESPACE_BEGIN
 
+/// Process-wide thread-safe logger with timestamped stream output.
 class Logger {
 public:
     enum class LogLevel { DEBUG, INFO, WARNING, ERROR };
@@ -23,9 +24,16 @@ private:
     LogLevel mLogLevel = LogLevel::DEBUG;
 
 public:
+    /// Returns the singleton logger instance.
     static Logger& instance();
+
+    /// Redirects subsequent log output to out. The caller owns the stream.
     void           setOutputStream(std::ostream& out);
+
+    /// Suppresses messages below logLevel.
     void           setLevel(LogLevel logLevel) { mLogLevel = logLevel; }
+
+    /// Formats all arguments into one log line guarded by the output mutex.
     template <typename... Args>
     void log(LogLevel logLevel, Args&&... args) {
         if (logLevel < mLogLevel) {
